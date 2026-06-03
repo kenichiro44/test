@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>取引回数ポイント管理</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 30px auto; padding: 20px; }
+input, button { font-size: 16px; padding: 8px; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+.positive { color: green; font-weight: bold; }
+.negative { color: red; font-weight: bold; }
+.zero { color: black; }
+</style>
+</head>
+<body>
+
+<h1>取引回数ポイント管理</h1>
+
+<p><b>ルール：</b>1回目 +10ポイント、2回目以降は1回ごとに -10ポイント</p>
+
+<input type="date" id="date">
+<input type="number" id="trades" min="0" placeholder="取引回数">
+<button onclick="saveEntry()">登録</button>
+
+<h2>集計</h2>
+<p id="todayPts"></p>
+<p id="monthPts"></p>
+<p id="totalPts"></p>
+
+<table>
+<thead>
+<tr>
+<th>日付</th>
+<th>取引回数</th>
+<th>ポイント</th>
+</tr>
+</thead>
+<tbody id="history"></tbody>
+</table>
+
+<script>
+function calcPoints(n){
+    if(n <= 0) return 0;
+    return 10 - ((n - 1) * 10);
+}
+
+function loadData(){
+    return JSON.parse(localStorage.getItem("tradePoints") || "[]");
+}
+
+function saveData(data){
+    localStorage.setItem("tradePoints", JSON.stringify(data));
+}
+
+function getClass(value){
+    if(value < 0) return "negative";
+    if(value > 0) return "positive";
+    return "zero";
+}
+
+function setColoredText(element, text, value){
+    element.textContent = text;
+    element.className = getClass(value);
+}
+
+function saveEntry(){
+    const date = document.getElementById("date").value;
+    const trades = parseInt(document.getElementById("trades").value);
+
+    if(!date || isNaN(trades)){
+        alert("日付と取引回数を入力してください");
+        return;
+    }
+
+    const pts = calcPoints(trades);
+
+    let data = loadData();
+    data = data.filter(x => x.date !== date);
+    data.push({date, trades, pts});
+
+    saveData(data);
+    render();
+}
+
+function render(){
+    const data = loadData().sort((a,b)=>a.date.localeCompare(b.date));
+
+    const tbody = document.getElementById("history");
+    tbody.innerHTML = "";
+
+    let total = 0;
+    let monthTotal = 0;
+
+    const now = new Date();
+    const ym = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0");
+
+    data.forEach(r => {
+        total += r.pts;
+
+        if(r.date.startsWith(ym)){
+            monthTotal += r.pts;
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+            `<td>${r.date}</td>
+             <td>${r.trades}</td>
+             <td class="${getClass(r.pts)}">${r.pts}</td>`;
+
+        tbody.appendChild(tr);
+    });
+
+    const selectedDate = document.getElementById("date").value;
+    const todayRec = data.find(x => x.date === selectedDate);
+
+    const todayPts = todayRec ? todayRec.pts : 0;
+
+    setColoredText(
+        document.getElementById("todayPts"),
+        "選択日のポイント: " + todayPts,
+        todayPts
+    );
+
+    setColoredText(
+        document.getElementById("monthPts"),
+        "今月合計ポイント: " + monthTotal,
+        monthTotal
+    );
+
+    setColoredText(
+        document.getElementById("totalPts"),
+        "通算ポイント: " + total,
+        total
+    );
+}
+
+document.getElementById("date").value =
+    new Date().toISOString().slice(0,10);
+
+render();
+</script>
+
+</body>
+</html>
